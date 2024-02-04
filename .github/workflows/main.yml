@@ -1,0 +1,82 @@
+name: build docker images
+
+on:
+  push:
+    branches:
+      - prod
+
+jobs:
+  build:
+
+    name: Build APP Image
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: Check out code
+      uses: actions/checkout@v2
+
+    - name: Login to Amazon ECR
+      id: login-ecr
+      uses: aws-actions/amazon-ecr-login@v1
+      with:
+        registry: 508327803984.dkr.ecr.us-east-1.amazonaws.com/docker-app-ecrr
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+        AWS_REGION: us-east-1
+
+    - name: Build, test, tag, and push
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        ECR_REPOSITORY: docker-app-ecrr
+        IMAGE_TAG: v1.0
+      
+      run: |
+        
+      
+        # Docker build
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+        docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:iapp
+        # Unit test
+        docker run -d -p 8080:8080 --name nodeapp $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker ps
+        echo "Pause for 10 seconds to let container start"
+        sleep 10
+        # curl localhost:8080 -vvv
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:iapp
+  build_db:
+
+    name: Build Image of mqsql
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: Check out code
+      uses: actions/checkout@v2
+
+    - name: Login to Amazon ECR
+      id: login-ecr-db
+      uses: aws-actions/amazon-ecr-login@v1
+      with:
+        registry: 508327803984.dkr.ecr.us-east-1.amazonaws.com/docker-db-ecrr
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+        AWS_REGION: us-east-1   
+   
+    - name: Build, tag, and push 
+      env:
+        ECR_REGISTRY: ${{ steps.login-ecr-db.outputs.registry }}
+        ECR_REPOSITORY: docker-db-ecrr
+        IMAGE_TAG: v1.0
+      run: |
+       
+        # Docker build
+        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f Dockerfile_mysql .
+        docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:idb
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+        docker push $ECR_REGISTRY/$ECR_REPOSITORY:idb
